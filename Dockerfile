@@ -1,26 +1,27 @@
-FROM alpine:edge
+FROM alpine:3.12
 
-ARG PW
+# VNC Server password
+ARG PW=a
 
-RUN apk --update --no-cache add sudo bash supervisor x11vnc shadow firefox-esr xvfb \
-	exo xfce4-whiskermenu-plugin gtk-xfce-engine thunar numix-themes-xfwm4 xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop xfwm4 xsetroot \
+RUN apk --no-cache add sudo bash supervisor x11vnc shadow firefox-esr xvfb \
+	exo xfce4-whiskermenu-plugin thunar numix-themes-xfwm4 xfce4-panel xfce4-session xfce4-settings xfce4-terminal xfconf xfdesktop xfwm4 xsetroot \
 	ttf-dejavu numix-themes-gtk2 adwaita-icon-theme
 
-RUN useradd -m -s /bin/bash max
+RUN x11vnc -storepasswd ${PW} /etc/vncpw \
+	&& chmod 400 /etc/vncpw \
+	&& sed -i 's|root:x:0:0:root:/root:/bin/ash|root:x:0:0:root:/root:/bin/bash|g' /etc/passwd
 
-RUN echo "max:$PW" | chpasswd
+# RUN sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc
 
-RUN echo "max ALL=(ALL) ALL" >> /etc/sudoers
+#RUN rm -rf /apk /tmp/* /var/cache/apk/*
 
-RUN mkdir -p /etc/supervisor/conf.d
+COPY supervisord.conf /etc/supervisor/conf.d/
+#COPY .bashrc /root/
+# COPY x11vnc.desktop /usr/share/applications/
 
-RUN x11vnc -storepasswd $PW /etc/vncpw && chmod 444 /etc/vncpw
-
-RUN rm -rf /apk /tmp/* /var/cache/apk/*
-
-ADD supervisord.conf /etc/supervisor/conf.d/
+ENV TERM=xterm-256color
 
 EXPOSE 5900
-WORKDIR /home/max
+WORKDIR /root
 
 CMD ["/usr/bin/supervisord","-c","/etc/supervisor/conf.d/supervisord.conf"]
